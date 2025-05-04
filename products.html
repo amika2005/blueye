@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLUEYE - Products Collection</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.7.1/dist/gsap.min.js"></script>
+
+    <style>
+        /* Base styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+            overflow-x: hidden;
+            cursor: none;
+        }
+
+        /* Custom cursor */
+        .cursor {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #000;
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transition: transform 0.1s ease;
+        }
+        
+        .cursor-follower {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 9998;
+            transition: transform 0.3s ease, width 0.3s ease, height 0.3s ease;
+        }
+        
+        .hover-target:hover ~ .cursor {
+            transform: scale(1.5);
+        }
+        
+        .hover-target:hover ~ .cursor-follower {
+            transform: scale(1.5);
+            border-color: rgba(0, 0, 0, 0.8);
+        }
+
+        /* Smooth scroll */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #000;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #333;
+        }
+        
+        /* Product hover effect */
+        .product-card {
+            transition: all 0.5s ease;
+        }
+        
+        .product-card:hover .product-image {
+            transform: scale(1.05);
+        }
+        
+        .product-image {
+            transition: transform 0.7s ease;
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 1s ease forwards;
+        }
+        
+        .animate-slide-up {
+            animation: slideUp 1s ease forwards;
+        }
+        
+        /* 3D scene container */
+        .scene-container {
+            position: relative;
+            height: 70vh;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        /* Product grid layout */
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        
+        /* Filter buttons */
+        .filter-btn {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-btn::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: currentColor;
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.3s ease;
+        }
+        
+        .filter-btn:hover::after,
+        .filter-btn.active::after {
+            transform: scaleX(1);
+            transform-origin: left;
+        }
+        
+        .filter-btn.active {
+            font-weight: 500;
+        }
+        
+        /* Product detail modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        
+        .modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal-content {
+            background-color: white;
+            width: 90%;
+            max-width: 1000px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            transform: translateY(50px);
+            opacity: 0;
+            transition: transform 0.5s ease, opacity 0.5s ease;
+        }
+        
+        .modal.active .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        /* 3D product viewer */
+        .product-3d-viewer {
+            width: 100%;
+            height: 400px;
+            background-color: #f5f5f5;
+            position: relative;
+        }
+        
+        /* Notification bar */
+        .notification-bar {
+            background-color: #000;
+            color: #fff;
+            text-align: center;
+            padding: 0.75rem;
+            font-size: 0.875rem;
+            position: relative;
+        }
+        
+        .close-notification {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+        }
+        
+        /* Menu overlay */
+        .menu-overlay {
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        
+        /* Product rotation on hover */
+        .rotate-on-hover {
+            transition: transform 0.5s ease;
+        }
+        
+        .rotate-on-hover:hover {
+            transform: rotateY(10deg);
+        }
+        
+        /* Floating animation */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        /* Product category pills */
+        .category-pill {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        /* Product image zoom effect */
+        .zoom-container {
+            overflow: hidden;
+        }
+        
+        .zoom-image {
+            transition: transform 0.5s ease;
+        }
+        
+        .zoom-container:hover .zoom-image {
+            transform: scale(1.1);
+        }
+        
+        /* 3D card effect */
+        .card-3d {
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+        
+        .card-3d-inner {
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        
+        .card-3d:hover .card-3d-inner {
+            transform: rotateY(10deg) rotateX(5deg);
+        }
+        
+        /* Product quick view button */
+        .quick-view-btn {
+            position: absolute;
+            bottom: 1rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        
+        .product-card:hover .quick-view-btn {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        /* Hero text animation */
+        .hero-text {
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeInUp 1.5s ease forwards;
+        }
+        
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .hero-text-delay-1 {
+            animation-delay: 0.3s;
+        }
+        
+        .hero-text-delay-2 {
+            animation-delay: 0.6s;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <!-- Custom cursor -->
+    <div class="cursor"></div>
+    <div class="cursor-follower"></div>
+
+    <!-- Notification bar -->
+    <div id="notification-bar" class="notification-bar">
+        <p class="tracking-wider uppercase text-sm">50% CLEARANCE SALE - PROCESSING TIME IS CURRENTLY 7-14 DAYS</p>
+        <button id="close-notification" class="close-notification hover-target">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Header -->
+    <header class="py-4 px-6 flex justify-between items-center border-b border-gray-200">
+        <button id="menu-button" class="hover-target flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
+            </svg>
+            <span class="hidden md:inline">Menu</span>
+        </button>
+        
+        <a href="index.html" class="text-center hover-target">
+            <h1 class="text-2xl md:text-3xl font-bold tracking-widest">BLUEYE</h1>
+        </a>
+        
+        <div class="flex items-center space-x-4">
+            <button class="hover-target">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+            </button>
+            <button class="hover-target">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 1a2.5 2.5 0 0 1 2.5 2.5V4h-5v-.5A2.5 2.5 0 0 1 8 1zm3.5 3v-.5a3.5 3.5 0 1 0-7 0V4H1v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4h-3.5zM2 5h12v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5z"/>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Menu overlay -->
+    <div id="menu-overlay" class="fixed inset-0 bg-white z-50 opacity-0 invisible flex flex-col justify-center items-center">
+        <button id="close-menu" class="absolute top-6 right-6 hover-target">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+        </button>
+        
+        <nav class="text-center">
+            <ul class="space-y-6">
+                <li><a href="index.html" class="text-3xl md:text-4xl font-light hover-target btn-hover-effect">Home</a></li>
+                <li><a href="index.html#about" class="text-3xl md:text-4xl font-light hover-target btn-hover-effect">About</a></li>
+                <li><a href="products.html" class="text-3xl md:text-4xl font-light hover-target btn-hover-effect">Products</a></li>
+                <li><a href="index.html#quotes" class="text-3xl md:text-4xl font-light hover-target btn-hover-effect">Quotes</a></li>
+                <li><a href="index.html#contact" class="text-3xl md:text-4xl font-light hover-target btn-hover-effect">Contact</a></li>
+            </ul>
+        </nav>
+        
+        <div class="mt-12 flex space-x-6">
+            <a href="#" class="hover-target">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 0C5.829 0 5.556.01 4.703.048 3.85.088 3.269.222 2.76.42a3.917 3.917 0 0 0-1.417.923A3.927 3.927 0 0 0 .42 2.76C.222 3.268.087 3.85.048 4.7.01 5.555 0 5.827 0 8.001c0 2.172.01 2.444.048 3.297.04.852.174 1.433.372 1.942.205.526.478.972.923 1.417.444.445.89.719 1.416.923.51.198 1.09.333 1.942.372C5.555 15.99 5.827 16 8 16s2.444-.01 3.298-.048c.851-.04 1.434-.174 1.943-.372a3.916 3.916 0 0 0 1.416-.923c.445-.445.718-.891.923-1.417.197-.509.332-1.09.372-1.942C15.99 10.445 16 10.173 16 8s-.01-2.445-.048-3.299c-.04-.851-.175-1.433-.372-1.941a3.926 3.926 0 0 0-.923-1.417A3.911 3.911 0 0 0 13.24.42c-.51-.198-1.092-.333-1.943-.372C10.443.01 10.172 0 7.998 0h.003zm-.717 1.442h.718c2.136 0 2.389.007 3.232.046.78.035 1.204.166 1.486.275.373.145.64.319.92.599.28.28.453.546.598.92.11.281.24.705.275 1.485.039.843.047 1.096.047 3.231s-.008 2.389-.047 3.232c-.035.78-.166 1.203-.275 1.485a2.47 2.47 0 0 1-.599.919c-.28.28-.546.453-.92.598-.28.11-.704.24-1.485.276-.843.038-1.096.047-3.232.047s-2.39-.009-3.233-.047c-.78-.036-1.203-.166-1.485-.276a2.478 2.478 0 0 1-.92-.598 2.48 2.48 0 0 1-.6-.92c-.109-.281-.24-.705-.275-1.485-.038-.843-.046-1.096-.046-3.233 0-2.136.008-2.388.046-3.231.036-.78.166-1.204.276-1.486.145-.373.319-.64.599-.92.28-.28.546-.453.92-.598.282-.11.705-.24 1.485-.276.738-.034 1.024-.044 2.515-.045v.002zm4.988 1.328a.96.96 0 1 0 0 1.92.96.96 0 0 0 0-1.92zm-4.27 1.122a4.109 4.109 0 1 0 0 8.217 4.109 4.109 0 0 0 0-8.217zm0 1.441a2.667 2.667 0 1 1 0 5.334 2.667 2.667 0 0 1 0-5.334z"/>
+                </svg>
+            </a>
+            <a href="https://wa.me/9471xxxxxxx" class="hover-target">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
+                </svg>
+            </a>
+        </div>
+    </div>
+
+    <main>
+        <!-- 3D Hero Section with Particles -->
+        <section class="scene-container">
+            <div id="particles-js" class="w-full h-full absolute"></div>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <div class="text-center text-black p-8 max-w-2xl">
+                    <h1 class="text-4xl md:text-6xl font-light mb-4 hero-text">Our Collection</h1>
+                    <p class="text-lg mb-6 hero-text hero-text-delay-1">Discover our exquisite range of handcrafted jewelry pieces</p>
+                    <a href="#products-section" class="inline-block border border-black px-8 py-3 mt-4 hover:bg-black hover:text-white transition-colors duration-300 hero-text hero-text-delay-2">
+                        Explore Now
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Product Filters -->
+        <section id="products-section" class="py-12 px-8 md:px-16 bg-white">
+            <div class="max-w-6xl mx-auto">
+                <div class="flex flex-wrap justify-center gap-8 mb-12">
+                    <button class="filter-btn hover-target active" data-filter="all">All Products</button>
+                    <button class="filter-btn hover-target" data-filter="necklace">Necklaces</button>
+                    <button class="filter-btn hover-target" data-filter="earring">Earrings</button>
+                    <button class="filter-btn hover-target" data-filter="bracelet">Bracelets</button>
+                    <button class="filter-btn hover-target" data-filter="ring">Rings</button>
+                    <button class="filter-btn hover-target" data-filter="fancy">Fancy Items</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Products Grid -->
+        <section class="py-12 px-8 md:px-16 bg-gray-50">
+            <div class="max-w-6xl mx-auto">
+                <div class="product-grid">
+                    <!-- Product 1 -->
+                    <div class="product-card card-3d" data-category="necklace">
+                        <div class="card-3d-inner">
+                            <div class="zoom-container relative mb-4">
+                                <img src="assets/product1.jpeg" alt="Sparkling Necklace" class="zoom-image w-full h-80 object-cover">
+                                <span class="category-pill absolute top-4 left-4 bg-black text-white">Necklace</span>
+                                <button class="quick-view-btn px-6 py-2 bg-white text-black hover-target" data-product="product1">
+                                    Quick View
+                                </button>
+                            </div>
+                            <h3 class="text-xl font-light mb-2">Sparkling Necklace</h3>
+                            <p class="text-lg mb-4">LKR 4,800.00</p>
+                            <button onclick="openWhatsAppOrder('P001', 'Sparkling Necklace')" class="w-full py-3 border border-black hover:bg-black hover:text-white transition-colors duration-300 hover-target">
+                                ORDER ON WHATSAPP
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Product 2 -->
+                    <div class="product-card card-3d" data-category="earring">
+                        <div class="card-3d-inner">
+                            <div class="zoom-container relative mb-4">
+                                <img src="assets/product2.jpeg" alt="Azure Earrings" class="zoom-image w-full h-80 object-cover">
+                                <span class="category-pill absolute top-4 left-4 bg-black text-white">Earrings</span>
+                                <button class="quick-view-btn px-6 py-2 bg-white text-black hover-target" data-product="product2">
+                                    Quick View
+                                </button>
+                            </div>
+                            <h3 class="text-xl font-light mb-2">Azure Earrings</h3>
+                            <p class="text-lg mb-4">LKR 3,200.00</p>
+                            <button onclick="openWhatsAppOrder('P002', 'Azure Earrings')" class="w-full py-3 border border-black hover:bg-black hover:text-white transition-colors duration-300 hover-target">
+                                ORDER ON WHATSAPP
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Product 3 -->
+                    <div class="product-card card-3d" data-category="fancy">
+                        <div class="card-3d-inner">
+                            <div class="zoom-container relative mb-4">
+                                <img src="assets/product3.jpeg" alt="Fancy Blue Charm" class="zoom-image w-full h-80 object-cover">
+                                <span class="category-pill absolute top-4 left-4 bg-black text-white">Fancy</span>
+                                <button class="quick-view-btn px-6 py-2 bg-white text-black hover-target" data-product="product3">
+                                    Quick View
+                                </button>
+                            </div>
+                            <h3 class="text-xl font-light mb-2">Fancy Blue Charm</h3>
+                            <p class="text-lg mb-4">LKR 1,500.00</p>
+                            <button onclick="openWhatsAppOrder('P003', 'Fancy Blue Charm')" class="w-full py-3 border border-black hover:bg-black hover:text-white transition-colors duration-300 hover-target">
+                                ORDER ON WHATSAPP
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Product 4 -->
+                    <div class="product-card card-3d" data-category="bracelet">
+                        <div class="card-3d-inner">
+                            <div class="zoom-container relative mb-4">
+                                <img src="assets/product1.jpeg" alt="Crystal Bracelet" class="zoom-image w-full h-80 object-cover">
+                                <span class="category-pill absolute top-4 left-4 bg-black text-white">Bracelet</span>
+                                <button class="quick-view-btn px-6 py-2 bg-white text-black hover-target" data-product="product4">
+                                    Quick View
+                                </button>
+                            </div>
+                            <h3 class="text-xl font-light mb-2">Crystal Bracelet</h3>
+                            <p class="text-lg mb-4">LKR 2,800.00</p>
+                            <button onclick="openWhatsAppOrder('P004', 'Crystal Bracelet')" class="w-full py-3 border border-black hover:bg-black hover:text-white transition-colors duration-300 hover-target">
+                                ORDER ON WHATSAPP
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Product 5 -->
+                    <div class="product-card card-3d" data-category="ring">
+                        <div class="card-3d-inner">
+                            <div class="zoom-container relative mb-4">
+                                <img src="assets/product2.jpeg" alt="Sapphire Ring" class="zoom-image w-full h-80 object-cover">
+                                <span class="category-pill absolute top-4 left-4 bg-black text-white">Ring</span>
+                                <button class="quick-view-btn px-6 py-2 bg-white text-black hover-target" data-product="product5">
+                                    Quick View
+                                </button>
+                            </div>
+                            <h3 class="text-xl font-light mb-2">Sapphire Ring</h3>
+                            <p class="text-lg mb-4">LKR 5,500.00</p>
+                            <button onclick="openWhatsAppOrder('P005', 'Sapphire Ring')" class="w-full py-3 border border-black hover:bg-black hover:text-white transition-colors duration-300 hover-target">
+                                ORDER ON WHATSAPP
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Product 6 -->
+                    <div class="product-card card-3d" data-category="necklace">
+                        <div class="card-3d-inner">
+                            <div class="zoom-container relative mb-4">
+                                <img src="assets/product3.jpeg" alt="Pearl Necklace" class="zoom-image w-full h-80 object-cover">
+                                <span class="category-pill absolute top-4 left-4 bg-black text-white">Necklace</span>
+                                <button class="quick-view-btn px-6 py-2 bg-white text-black hover-target" data-product="product6">
+                                    Quick View
+                                </button>
+                            </div>
+                            <h3 class="text-xl font-light mb-2">Pearl Necklace</h3>
+                            <p class="text-lg mb-4">LKR 6,200.00</p>
+                            <button onclick="openWhatsAppOrder('P006', 'Pearl Necklace')" class="w-full py-3 border border-black hover:bg-black hover:text-white transition-colors duration-300 hover-target">
+                                ORDER ON WHATSAPP
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Product 7 -->
+                    <div class="product-card card-3d" data-category="earring">
+                        <div class="card-3d-inner">
+                            <div class="zoom-container relative mb-4">
+                                <img src="assets/product1.jpeg" alt="Diamond Studs" class="zoom-image w-full h-80 object-cover">
+                                <span class="category-pill absolute top-4 left-4 bg-black text-white">Earrings</span>
+                                <button class="quick-view-btn px-6 py-2 bg-white text-black hover-target" data-product="product7">
+                                    Quick View
+                                </button>
+                            </div>
+                            <h3 class="text-xl font-light mb-2">Diamond Studs</h3>
+                            <p class="text-lg mb-4">LKR 7,800.00</p>
+                            <button onclick="openWhatsAppOrder('P007', 'Diamond Studs')" class="w-full py-3 border border-black hover:bg-black hover:text-white transition-colors duration-300 hover-target">
+                                ORDER ON WHATSAPP
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Product 8 -->
+                    <div class="product-card card-3d" data-category="fancy">
+                        <div class="card-3d-inner">
+                            <div class="zoom-container relative mb-4">
+                                <img src="assets/product2.jpeg" alt="Crystal Ornament" class="zoom-image w-full h-80 object-cover">
+                                <span class="category-pill absolute top-4 left-4 bg-black text-white">Fancy</span>
+                                <button class="quick-view-btn px-6 py-2 bg-white text-black hover-target" data-product="product8">
+                                    Quick View
+                                </button>
+                            </div>
+                            <h3 class="text-xl font-light mb-2">Crystal Ornament</h3>
+                            <p class="text-lg mb-4">LKR 3,900.00</p>
+                            <button onclick="openWhatsAppOrder('P008', 'Crystal Ornament')" class="w-full py-3 border border-black hover:bg-black hover:text-white transition-colors duration-300 hover-target">
+                                ORDER ON WHATSAPP
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Product 9 -->
+                    <div class="product-card card-3d" data-category="bracelet">
+                        <div class="card-3d-inner">
+                            <div class="zoom-container relative mb-4">
+                                <img src="assets/product3.jpeg" alt="Silver Chain Bracelet" class="zoom-image w-full h-80 object-cover">
+                                <span class="category-pill absolute top-4 left-4 bg-black text-white">Bracelet</span>
+                                <button class="quick-view-btn px-6 py-2 bg-white text-black hover-target" data-product="product9">
+                                    Quick View
+                                </button>
+                            </div>
+                            <h3 class="text-xl font-light mb-2">Silver Chain Bracelet</h3>
+                            <p class="text-lg mb-4">LKR 4,100.00</p>
+                            <button onclick="openWhatsAppOrder('P009', 'Silver Chain Bracelet')" class="w-full py-3 border border-black hover:bg-black hover:text-white transition-colors duration-300 hover-target">
+                                ORDER ON WHATSAPP
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3D Product Showcase -->
+        <section class="py-20 px-8 md:px-16 bg-black text-white">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16">
+                    <p class="text-sm uppercase tracking-widest mb-4">INTERACTIVE EXPERIENCE</p>
+                    <h2 class="text-3xl md:text-5xl font-light mb-8">Explore Our Jewelry in 3D</h2>
+                    <p class="text-lg mb-8 max-w-2xl mx-auto">Use your mouse to rotate, zoom and explore our featured pieces in stunning 3D detail.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="product-3d-viewer" id="viewer1"></div>
+                    <div class="product-3d-viewer" id="viewer2"></div>
+                    <div class="product-3d-viewer" id="viewer3"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Product Detail Modal -->
+    <div id="product-modal" class="modal">
+        <div class="modal-content p-0">
+            <button id="close-modal" class="absolute top-4 right-4 z-10 text-white hover-target">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                </svg>
+            </button>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2">
+                <div class="bg-gray-100 p-8 flex items-center justify-center">
+                    <img id="modal-image" src="/placeholder.svg" alt="Product" class="max-h-[500px] object-contain">
+                </div>
+                <div class="p-8">
+                    <h2 id="modal-title" class="text-3xl font-light mb-2"></h2>
+                    <p id="modal-price" class="text-2xl mb-6"></p>
+                    <div id="modal-description" class="text-gray-600 mb-8"></div>
+                    <button id="modal-order-btn" class="w-full py-3 bg-black text-white hover:bg-gray-800 transition-colors duration-300 hover-target">
+                        ORDER ON WHATSAPP
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-black text-white py-16 px-8 md:px-16">
+        <div class="max-w-6xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+                <!-- Logo and about -->
+                <div class="md:col-span-1">
+                    <h2 class="text-2xl font-bold mb-6">BLUEYE</h2>
+                    <p class="text-gray-400 mb-6">Exquisite Jewellery & Unique Fancy Items Crafted For You. Discover the perfect piece that tells your story.</p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 0C5.829 0 5.556.01 4.703.048 3.85.088 3.269.222 2.76.42a3.917 3.917 0 0 0-1.417.923A3.927 3.927 0 0 0 .42 2.76C.222 3.268.087 3.85.048 4.7.01 5.555 0 5.827 0 8.001c0 2.172.01 2.444.048 3.297.04.852.174 1.433.372 1.942.205.526.478.972.923 1.417.444.445.89.719 1.416.923.51.198 1.09.333 1.942.372C5.555 15.99 5.827 16 8 16s2.444-.01 3.298-.048c.851-.04 1.434-.174 1.943-.372a3.916 3.916 0 0 0 1.416-.923c.445-.445.718-.891.923-1.417.197-.509.332-1.09.372-1.942C15.99 10.445 16 10.173 16 8s-.01-2.445-.048-3.299c-.04-.851-.175-1.433-.372-1.941a3.926 3.926 0 0 0-.923-1.417A3.911 3.911 0 0 0 13.24.42c-.51-.198-1.092-.333-1.943-.372C10.443.01 10.172 0 7.998 0h.003zm-.717 1.442h.718c2.136 0 2.389.007 3.232.046.78.035 1.204.166 1.486.275.373.145.64.319.92.599.28.28.453.546.598.92.11.281.24.705.275 1.485.039.843.047 1.096.047 3.231s-.008 2.389-.047 3.232c-.035.78-.166 1.203-.275 1.485a2.47 2.47 0 0 1-.599.919c-.28.28-.546.453-.92.598-.28.11-.704.24-1.485.276-.843.038-1.096.047-3.232.047s-2.39-.009-3.233-.047c-.78-.036-1.203-.166-1.485-.276a2.478 2.478 0 0 1-.92-.598 2.48 2.48 0 0 1-.6-.92c-.109-.281-.24-.705-.275-1.485-.038-.843-.046-1.096-.046-3.233 0-2.136.008-2.388.046-3.231.036-.78.166-1.204.276-1.486.145-.373.319-.64.599-.92.28-.28.546-.453.92-.598.282-.11.705-.24 1.485-.276.738-.034 1.024-.044 2.515-.045v.002zm4.988 1.328a.96.96 0 1 0 0 1.92.96.96 0 0 0 0-1.92zm-4.27 1.122a4.109 4.109 0 1 0 0 8.217 4.109 4.109 0 0 0 0-8.217zm0 1.441a2.667 2.667 0 1 1 0 5.334 2.667 2.667 0 0 1 0-5.334z"/>
+                            </svg>
+                        </a>
+                        <a href="https://wa.me/9471xxxxxxx" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Quick links -->
+                <div class="md:col-span-1">
+                    <h3 class="text-lg font-medium mb-6">Quick Links</h3>
+                    <ul class="space-y-3">
+                        <li><a href="index.html" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">Home</a></li>
+                        <li><a href="index.html#about" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">About</a></li>
+                        <li><a href="products.html" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">Products</a></li>
+                        <li><a href="index.html#quotes" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">Quotes</a></li>
+                        <li><a href="index.html#contact" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">Contact</a></li>
+                    </ul>
+                </div>
+                
+                <!-- Products -->
+                <div class="md:col-span-1">
+                    <h3 class="text-lg font-medium mb-6">Products</h3>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">Necklaces</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">Earrings</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">Bracelets</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">Rings</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 hover-target">Fancy Items</a></li>
+                    </ul>
+                </div>
+                
+                <!-- Newsletter -->
+                <div class="md:col-span-1">
+                    <h3 class="text-lg font-medium mb-6">Newsletter</h3>
+                    <p class="text-gray-400 mb-4">Subscribe to our newsletter for updates on new products and special offers.</p>
+                    <form class="flex">
+                        <input type="email" placeholder="Your email" class="px-4 py-2 w-full bg-gray-800 border-none focus:outline-none focus:ring-1 focus:ring-white">
+                        <button type="submit" class="bg-white text-black px-4 py-2 hover:bg-gray-200 transition-colors duration-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-gray-400 text-sm">&copy; 2023 BLUEYE. All Rights Reserved.</p>
+                <div class="mt-4 md:mt-0">
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm mr-6">Privacy Policy</a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm mr-6">Terms of Service</a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm">Shipping & Returns</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Particles.js for 3D effect -->
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    
+    <script>
+        // Initialize particles.js
+        document.addEventListener('DOMContentLoaded', function() {
+            particlesJS('particles-js', {
+                "particles": {
+                    "number": {
+                        "value": 80,
+                        "density": {
+                            "enable": true,
+                            "value_area": 800
+                        }
+                    },
+                    "color": {
+                        "value": "#000000"
+                    },
+                    "shape": {
+                        "type": "circle",
+                        "stroke": {
+                            "width": 0,
+                            "color": "#000000"
+                        },
+                        "polygon": {
+                            "nb_sides": 5
+                        }
+                    },
+                    "opacity": {
+                        "value": 0.5,
+                        "random": false,
+                        "anim": {
+                            "enable": false,
+                            "speed": 1,
+                            "opacity_min": 0.1,
+                            "sync": false
+                        }
+                    },
+                    "size": {
+                        "value": 3,
+                        "random": true,
+                        "anim": {
+                            "enable": false,
+                            "speed": 40,
+                            "size_min": 0.1,
+                            "sync": false
+                        }
+                    },
+                    "line_linked": {
+                        "enable": true,
+                        "distance": 150,
+                        "color": "#000000",
+                        "opacity": 0.4,
+                        "width": 1
+                    },
+                    "move": {
+                        "enable": true,
+                        "speed": 2,
+                        "direction": "none",
+                        "random": false,
+                        "straight": false,
+                        "out_mode": "out",
+                        "bounce": false,
+                        "attract": {
+                            "enable": false,
+                            "rotateX": 600,
+                            "rotateY": 1200
+                        }
+                    }
+                },
+                "interactivity": {
+                    "detect_on": "canvas",
+                    "events": {
+                        "onhover": {
+                            "enable": true,
+                            "mode": "grab"
+                        },
+                        "onclick": {
+                            "enable": true,
+                            "mode": "push"
+                        },
+                        "resize": true
+                    },
+                    "modes": {
+                        "grab": {
+                            "distance": 140,
+                            "line_linked": {
+                                "opacity": 1
+                            }
+                        },
+                        "bubble": {
+                            "distance": 400,
+                            "size": 40,
+                            "duration": 2,
+                            "opacity": 8,
+                            "speed": 3
+                        },
+                        "repulse": {
+                            "distance": 200,
+                            "duration": 0.4
+                        },
+                        "push": {
+                            "particles_nb": 4
+                        },
+                        "remove": {
+                            "particles_nb": 2
+                        }
+                    }
+                },
+                "retina_detect": true
+            });
+        });
+        
+        // Custom cursor
+        const cursor = document.querySelector('.cursor');
+        const cursorFollower = document.querySelector('.cursor-follower');
+        
+        document.addEventListener('mousemove', function(e) {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+            
+            setTimeout(function() {
+                cursorFollower.style.left = e.clientX + 'px';
+                cursorFollower.style.top = e.clientY + 'px';
+            }, 100);
+        });
+        
+        // Hide cursor when leaving window
+        document.addEventListener('mouseout', function() {
+            cursor.style.display = 'none';
+            cursorFollower.style.display = 'none';
+        });
+        
+        document.addEventListener('mouseover', function() {
+            cursor.style.display = 'block';
+            cursorFollower.style.display = 'block';
+        });
+        
+        // Disable custom cursor on mobile
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            cursor.style.display = 'none';
+            cursorFollower.style.display = 'none';
+            document.body.style.cursor = 'auto';
+        }
+        
+        // Menu toggle
+        const menuButton = document.getElementById('menu-button');
+        const closeMenuButton = document.getElementById('close-menu');
+        const menuOverlay = document.getElementById('menu-overlay');
+        
+        menuButton.addEventListener('click', function() {
+            menuOverlay.style.opacity = '1';
+            menuOverlay.style.visibility = 'visible';
+        });
+        
+        closeMenuButton.addEventListener('click', function() {
+            menuOverlay.style.opacity = '0';
+            menuOverlay.style.visibility = 'hidden';
+        });
+        
+        // Close menu when clicking on a menu item
+        document.querySelectorAll('#menu-overlay a').forEach(link => {
+            link.addEventListener('click', () => {
+                menuOverlay.style.opacity = '0';
+                menuOverlay.style.visibility = 'hidden';
+            });
+        });
+        
+        // Close notification bar
+        const notificationBar = document.getElementById('notification-bar');
+        const closeNotificationButton = document.getElementById('close-notification');
+        
+        closeNotificationButton.addEventListener('click', function() {
+            notificationBar.style.display = 'none';
+        });
+        
+        // WhatsApp order function
+        function openWhatsAppOrder(productId, productName) {
+            const whatsappNumber = "9471xxxxxxx"; // Replace with your actual WhatsApp number
+            const message = `Hi BLUEYE, I'm interested in the product: ${productName} (ID: ${productId}). Please provide more details.`;
+            const encodedMessage = encodeURIComponent(message);
+            const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+            window.open(whatsappUrl, '_blank');
+        }
+        
+        // Product filtering
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        const productCards = document.querySelectorAll('.product-card');
+        
+        filterButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove active class from all buttons
+                filterButtons.forEach(btn => btn.classList.remove('active'));
+                
+                // Add active class to clicked button
+                button.classList.add('active');
+                
+                const filter = button.getAttribute('data-filter');
+                
+                // Show/hide products based on filter
+                productCards.forEach(card => {
+                    if (filter === 'all' || card.getAttribute('data-category') === filter) {
+                        card.style.display = 'block';
+                        
+                        // Add animation
+                        card.classList.add('animate-fade-in');
+                        setTimeout(() => {
+                            card.classList.remove('animate-fade-in');
+                        }, 1000);
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        // Product modal functionality
+        const modal = document.getElementById('product-modal');
+        const closeModalButton = document.getElementById('close-modal');
+        const quickViewButtons = document.querySelectorAll('.quick-view-btn');
+        const modalImage = document.getElementById('modal-image');
+        const modalTitle = document.getElementById('modal-title');
+        const modalPrice = document.getElementById('modal-price');
+        const modalDescription = document.getElementById('modal-description');
+        const modalOrderBtn = document.getElementById('modal-order-btn');
+        
+        // Product data
+        const productData = {
+            product1: {
+                title: 'Sparkling Necklace',
+                price: 'LKR 4,800.00',
+                image: 'assets/product1.jpeg',
+                description: 'A stunning sparkling necklace that adds elegance to any outfit. Made with high-quality materials and expert craftsmanship.',
+                id: 'P001'
+            },
+            product2: {
+                title: 'Azure Earrings',
+                price: 'LKR 3,200.00',
+                image: 'assets/product2.jpeg',
+                description: 'Beautiful azure earrings that bring out the color of your eyes. Perfect for both casual and formal occasions.',
+                id: 'P002'
+            },
+            product3: {
+                title: 'Fancy Blue Charm',
+                price: 'LKR 1,500.00',
+                image: 'assets/product3.jpeg',
+                description: 'A unique blue charm that adds a touch of magic to your accessories collection. Handcrafted with attention to detail.',
+                id: 'P003'
+            },
+            product4: {
+                title: 'Crystal Bracelet',
+                price: 'LKR 2,800.00',
+                image: 'assets/product1.jpeg',
+                description: 'An elegant crystal bracelet that sparkles with every movement. Adjustable size to fit most wrists.',
+                id: 'P004'
+            },
+            product5: {
+                title: 'Sapphire Ring',
+                price: 'LKR 5,500.00',
+                image: 'assets/product2.jpeg',
+                description: 'A beautiful sapphire ring that makes a statement. Perfect for special occasions or as a meaningful gift.',
+                id: 'P005'
+            },
+            product6: {
+                title: 'Pearl Necklace',
+                price: 'LKR 6,200.00',
+                image: 'assets/product3.jpeg',
+                description: 'A classic pearl necklace that never goes out of style. Elegant, sophisticated, and timeless.',
+                id: 'P006'
+            },
+            product7: {
+                title: 'Diamond Studs',
+                price: 'LKR 7,800.00',
+                image: 'assets/product1.jpeg',
+                description: 'Simple yet elegant diamond stud earrings. A must-have in every jewelry collection.',
+                id: 'P007'
+            },
+            product8: {
+                title: 'Crystal Ornament',
+                price: 'LKR 3,900.00',
+                image: 'assets/product2.jpeg',
+                description: 'A beautiful crystal ornament that adds a touch of elegance to any space. Makes for a perfect gift.',
+                id: 'P008'
+            },
+            product9: {
+                title: 'Silver Chain Bracelet',
+                price: 'LKR 4,100.00',
+                image: 'assets/product3.jpeg',
+                description: 'A sleek silver chain bracelet that complements any outfit. Durable and comfortable for everyday wear.',
+                id: 'P009'
+            }
+        };
+        
+        // Open modal with product details
+        quickViewButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const productId = button.getAttribute('data-product');
+                const product = productData[productId];
+                
+                modalImage.src = product.image;
+                modalTitle.textContent = product.title;
+                modalPrice.textContent = product.price;
+                modalDescription.textContent = product.description;
+                modalOrderBtn.onclick = function() {
+                    openWhatsAppOrder(product.id, product.title);
+                };
+                
+                modal.classList.add('active');
+            });
+        });
+        
+        // Close modal
+        closeModalButton.addEventListener('click', () => {
+            modal.classList.remove('active');
+        });
+        
+        // Close modal when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+            }
+        });
+        
+        // 3D Product viewers
+        document.addEventListener('DOMContentLoaded', function() {
+            setupProductViewer('viewer1', 0xFF5733);
+            setupProductViewer('viewer2', 0x3498DB);
+            setupProductViewer('viewer3', 0x9B59B6);
+        });
+        
+        // Function to set up individual product viewers
+        function setupProductViewer(elementId, color) {
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            
+            const container = document.getElementById(elementId);
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+            
+            // Create jewelry piece based on viewer
+            let geometry, material, mesh;
+            
+            if (elementId === 'viewer1') {
+                // Ring
+                geometry = new THREE.TorusGeometry(1, 0.3, 16, 100);
+                material = new THREE.MeshStandardMaterial({ 
+                    color: color,
+                    metalness: 0.9,
+                    roughness: 0.1
+                });
+            } else if (elementId === 'viewer2') {
+                // Earring
+                geometry = new THREE.SphereGeometry(0.7, 32, 32);
+                material = new THREE.MeshStandardMaterial({ 
+                    color: color,
+                    metalness: 0.8,
+                    roughness: 0.2
+                });
+            } else {
+                // Pendant
+                geometry = new THREE.OctahedronGeometry(0.8);
+                material = new THREE.MeshStandardMaterial({ 
+                    color: color,
+                    metalness: 0.9,
+                    roughness: 0.1
+                });
+            }
+            
+            mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+            
+            // Position camera
+            camera.position.z = 3;
+            
+            // Add controls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 3;
+            
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+        
+        // Add 3D effect to product cards
+        document.querySelectorAll('.card-3d').forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const cardRect = card.getBoundingClientRect();
+                const cardCenterX = cardRect.left + cardRect.width / 2;
+                const cardCenterY = cardRect.top + cardRect.height / 2;
+                
+                const angleY = (e.clientX - cardCenterX) / 15;
+                const angleX = (cardCenterY - e.clientY) / 15;
+                
+                card.querySelector('.card-3d-inner').style.transform = `rotateY(${angleY}deg) rotateX(${angleX}deg)`;
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.querySelector('.card-3d-inner').style.transform = 'rotateY(0deg) rotateX(0deg)';
+            });
+        });
+    </script>
+</body>
+</html>
